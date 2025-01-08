@@ -1,0 +1,18 @@
+schema: '2.0'
+stages:
+  output_data:
+    cmd: python src/main_data.py
+    deps:
+    - path: data/input/train.csv
+      hash: md5
+      md5: 29b5a41952f0adbd8f1238ac131c2a9f
+      size: 9237773
+    outs:
+    - path: data/output/test_data.pt
+      hash: md5
+      md5: 2202c5dd663ae07becbb5977a45a828f
+      size: 33983458
+    - path: data/output/train_data.pt
+      hash: md5
+      md5: 7ca531e1a27b4abdefeeba2e125bc9c4
+      size: 8496105

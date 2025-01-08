@@ -1,0 +1,53 @@
+name: dvc pipeline
+on: [push]  # Активация процесса при внесении изменений в репозиторий
+
+jobs:
+  execute-workflow:
+    runs-on: ubuntu-latest  # Выбор Ubuntu в качестве среды выполнения
+
+    steps:
+      # Этап 1: Получение кода из репозитория
+      - name: Fetch repository code
+        uses: actions/checkout@v2
+
+      # Этап 2: Подготовка Python
+      - name: Prepare Python environment
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8'  # Установка конкретной версии Python
+
+      # Этап 3: Установка необходимых пакетов
+      - name: Install required packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install dvc dvc-s3
+
+      # Этап 4: Настройка удаленного хранилища для DVC
+      - name: Set up DVC remote storage
+        env:
+          DVC_REMOTE_ACCESS_KEY_ID: ${{ secrets.DVC_REMOTE_ACCESS_KEY_ID }}
+          DVC_REMOTE_SECRET_ACCESS_KEY: ${{ secrets.DVC_REMOTE_SECRET_ACCESS_KEY }}
+        run: |
+          dvc remote add -d storage s3://mlops2train/data
+          dvc remote modify storage endpointurl https://storage.yandexcloud.net
+          dvc remote modify storage access_key_id $DVC_REMOTE_ACCESS_KEY_ID
+          dvc remote modify storage secret_access_key $DVC_REMOTE_SECRET_ACCESS_KEY
+
+      # Этап 5: Получение данных из удаленного источника
+      - name: Retrieve data from remote source
+        run: dvc pull
+
+      # Этап 6: Выполнение последовательности команд DVC
+      - name: Execute DVC sequence
+        run: dvc repro
+
+      # Этап 7: Отправка данных в удаленное хранилище
+      - name: Upload data to remote storage
+        run: dvc push
+
+      # Этап 8: Отображение текущего состояния DVC
+      - name: Display DVC status
+        run: |
+          dvc remote list
+          dvc status

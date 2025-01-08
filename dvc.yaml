@@ -1,0 +1,8 @@
+stages:
+  output_data:
+    cmd: python src/main_data.py
+    deps:
+      - data/input/train.csv
+    outs:
+      - data/output/train_data.pt
+      - data/output/test_data.pt
