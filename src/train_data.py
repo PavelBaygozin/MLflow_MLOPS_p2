@@ -1,5 +1,4 @@
-import mlflow
-import mlflow.sklearn
+from clearml import Task
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score
 import torch
@@ -10,8 +9,8 @@ import numpy as np
 torch.set_num_threads(2)
 
 def main():
-    # Установка адреса для отслеживания экспериментов
-    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    # Инициализация задачи ClearML
+    task = Task.init(project_name="MyProject", task_name="RandomForestExperiment")
 
     # Получение абсолютного пути к текущему файлу
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -54,13 +53,16 @@ def main():
         print(f"Accuracy: {accuracy}")
         print(f"F1 Score: {f1}")
 
-        # Логирование в MLflow
-        with mlflow.start_run():
-            mlflow.log_param("model_type", "RandomForestClassifier")
-            mlflow.log_param("n_estimators", n_estimators)
-            mlflow.log_metric("accuracy", accuracy)
-            mlflow.log_metric("f1_score", f1)
-            mlflow.sklearn.log_model(model, f"model_n_estimators_{n_estimators}")
+        # Логирование параметров и метрик в ClearML
+        task.get_logger().report_scalar(title="Metrics", series="Accuracy", value=accuracy, iteration=n_estimators)
+        task.get_logger().report_scalar(title="Metrics", series="F1 Score", value=f1, iteration=n_estimators)
+        task.get_logger().report_single_value(name="n_estimators", value=n_estimators)
+
+        # Сохранение модели
+        model_path = f"model_n_estimators_{n_estimators}.pkl"
+        import joblib
+        joblib.dump(model, model_path)
+        task.upload_artifact(name=model_path, artifact_object=model_path)
 
 if __name__ == "__main__":
     main()
