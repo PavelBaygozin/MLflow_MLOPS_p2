@@ -32,21 +32,24 @@ def process_data(dvc_pull_task_id):
         raise
 
 @PipelineDecorator.component(execution_queue="default", parents=["process_data"])
-def train_model(process_data_task_id, batch_size):
+def train_model(process_data_task_id, param):
     try:
-        print(f"Starting train_model with batch_size={batch_size}: training the model...")
+        print(f"Starting train_model with param={param}: training the model...")
 
         # Wait for process_data to complete
         process_data_task = Task.get_task(task_id=process_data_task_id)
         while not process_data_task.completed:
             time.sleep(5)  # Wait 5 seconds before checking again
 
-        # Run model training with the specified batch_size
-        subprocess.run(["python", "src/train_bert.py", "--batch-size", str(batch_size)], check=True)
-        print(f"train_model with batch_size={batch_size} completed successfully: model trained.")
+        # Run model training with the specified param
+        print(f"Running train_data.py with n_estimators={param}")
+        subprocess.run(["python", "src/train_data.py", "--n_estimators", str(param)], check=True)
+        print(f"train_model with param={param} completed successfully: model trained.")
         return Task.current_task().id  # Return task_id for use in dvc_repro
     except subprocess.CalledProcessError as e:
         print(f"Error in train_model: {e}")
+        print(f"Command failed: {e.cmd}")
+        print(f"Output: {e.output}")
         raise
 
 @PipelineDecorator.component(cache=False, execution_queue="default", parents=["train_model"])
@@ -85,20 +88,20 @@ def dvc_push(dvc_repro_task_id):
         raise
 
 @PipelineDecorator.pipeline(
-    name='text_classification_pipeline',
-    project='Text Classification',
+    name='random_forest_pipeline',
+    project='RandomForestExperiment',
     version='0.1'
 )
 def text_classification_pipeline_logic():
     dvc_pull_task_id = dvc_pull()
     process_data_task_id = process_data(dvc_pull_task_id)
 
-    # Run models with different batch sizes sequentially
-    train_model_task_id_8 = train_model(process_data_task_id, batch_size=8)
-    train_model_task_id_16 = train_model(train_model_task_id_8, batch_size=16)  # Depends on the completion of the first model
+    # Run models with different param sizes sequentially
+    train_model_task_id_50 = train_model(process_data_task_id, param=50)
+    train_model_task_id_100 = train_model(train_model_task_id_50, param=100)  # Depends on the completion of the first model
 
     # Update DVC and upload data
-    dvc_repro_task_id = dvc_repro(train_model_task_id_16)
+    dvc_repro_task_id = dvc_repro(train_model_task_id_50)
     dvc_push(dvc_repro_task_id)
 
 if __name__ == '__main__':
